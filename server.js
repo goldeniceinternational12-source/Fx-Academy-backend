@@ -9,24 +9,30 @@ dotenv.config();
 
 const app = express();
 
-// ===============================
-// MIDDLEWARES
-// ===============================
-app.use(cors({
-   origin: "*",
-methods: ["GET", "POST", "PUT", "DELETE"]
-}));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+/**
+ * ===============================
+ * MIDDLEWARES
+ * ===============================
+ */
+app.use(
+  cors({
+    origin: "*", // Change to your frontend URL in production
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
+  })
+);
 
-// Serve uploads
-app.use("/uploads", express.static("uploads"));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// ===============================
-// ROUTES
-// ===============================
+// Serve uploaded files
+app.use("/uploads", express.static("uploads"));
+
+/**
+ * ===============================
+ * ROUTES
+ * ===============================
+ */
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const materialRoutes = require("./routes/materialRoutes");
@@ -39,53 +45,74 @@ app.use("/api/materials", materialRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 
-// ===============================
-// TEST ROUTE
-// ===============================
+/**
+ * ===============================
+ * TEST ROUTE
+ * ===============================
+ */
 app.get("/", (req, res) => {
-    res.send("API is running...");
+  res.send("MILMICH FX Academy API is running...");
 });
 
-// ===============================
-// CREATE HTTP SERVER (IMPORTANT)
-// ===============================
+/**
+ * ===============================
+ * GLOBAL ERROR HANDLER
+ * ===============================
+ */
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+
+  res.status(500).json({
+    success: false,
+    message: "Internal Server Error",
+  });
+});
+
+/**
+ * ===============================
+ * CREATE HTTP SERVER
+ * ===============================
+ */
 const server = http.createServer(app);
 
-// ===============================
-// SOCKET.IO SETUP (REALTIME CORE)
-// ===============================
+/**
+ * ===============================
+ * SOCKET.IO
+ * ===============================
+ */
 const io = new Server(server, {
-    cors: {
-        origin: "*"
-    }
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
 });
 
-// make io available everywhere (controllers)
 app.set("io", io);
 
-// listen for connections
 io.on("connection", (socket) => {
-    console.log("🟢 Admin connected:", socket.id);
+  console.log("🟢 Connected:", socket.id);
 
-    socket.on("disconnect", () => {
-        console.log("🔴 Admin disconnected:", socket.id);
-    });
+  socket.on("disconnect", () => {
+    console.log("🔴 Disconnected:", socket.id);
+  });
 });
 
-// ===============================
-// DATABASE CONNECTION + SERVER START
-// ===============================
+/**
+ * ===============================
+ * DATABASE CONNECTION
+ * ===============================
+ */
 mongoose
-    .connect(process.env.MONGO_URI)
-    .then(() => {
-        console.log("MongoDB connected successfully");
+  .connect(process.env.MONGO_URI)
+  .then(() => {
+    console.log("✅ MongoDB connected successfully");
 
-        const PORT = process.env.PORT || 5000;
+    const PORT = process.env.PORT || 5000;
 
-        server.listen(PORT, () => {
-            console.log(`Server running on port ${PORT}`);
-        });
-    })
-    .catch((err) => {
-        console.log("MongoDB connection error:", err.message);
+    server.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
     });
+  })
+  .catch((err) => {
+    console.error("❌ MongoDB Connection Error:", err.message);
+  });

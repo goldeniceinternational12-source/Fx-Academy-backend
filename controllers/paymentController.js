@@ -15,33 +15,52 @@ const submitPayment = async (req, res) => {
       return res.status(404).json({ message: "Request not found" });
     }
 
+    // Check receipt upload
+    if (!req.file) {
+      return res.status(400).json({
+        message: "Receipt is required",
+      });
+    }
+
+    // Prevent duplicate payments
+    const existingPayment = await Payment.findOne({
+      request: requestId,
+    });
+
+    if (existingPayment) {
+      return res.status(400).json({
+        message: "Payment already submitted",
+      });
+    }
+
     const payment = await Payment.create({
       user: req.user.id,
       request: requestId,
       receipt: req.file.path,
-      status: "pending"
+      status: "pending",
     });
 
     request.status = "processing";
     await request.save();
 
-    // ===============================
-    // 🔥 REAL-TIME SOCKET EMIT (ADD HERE)
-    // ===============================
+    // Socket.IO Dashboard Update
     const io = req.app.get("io");
 
     io.emit("dashboard-update", {
       type: "payment",
-      message: "New payment submitted"
+      message: "New payment submitted",
     });
 
     res.status(201).json({
       message: "Payment submitted successfully",
-      payment
+      payment,
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(err);
+    res.status(500).json({
+      message: err.message,
+    });
   }
 };
 
@@ -59,7 +78,10 @@ const getAllPayments = async (req, res) => {
     res.json(payments);
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(err);
+    res.status(500).json({
+      message: err.message,
+    });
   }
 };
 
@@ -71,61 +93,84 @@ const updatePaymentStatus = async (req, res) => {
   try {
     const { status } = req.body;
 
+    const allowedStatuses = ["pending", "approved", "rejected"];
+
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        message: "Invalid payment status",
+      });
+    }
+
     const payment = await Payment.findById(req.params.id);
 
     if (!payment) {
-      return res.status(404).json({ message: "Payment not found" });
+      return res.status(404).json({
+        message: "Payment not found",
+      });
     }
 
     payment.status = status;
     await payment.save();
 
-    // ===============================
-    // 🔥 REAL-TIME UPDATE (IMPORTANT)
-    // ===============================
+    // Update linked request
+    if (status === "approved") {
+      await MaterialRequest.findByIdAndUpdate(payment.request, {
+        status: "paid",
+      });
+    }
+
+    // Socket.IO Dashboard Update
     const io = req.app.get("io");
 
     io.emit("dashboard-update", {
       type: "payment",
-      message: `Payment ${status}`
+      message: `Payment ${status}`,
     });
 
     res.json({
-      message: "Payment updated",
-      payment
+      message: "Payment updated successfully",
+      payment,
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(err);
+    res.status(500).json({
+      message: err.message,
+    });
   }
 };
 
 //
 // ===============================
-// DELETE PAYMENT
+// DELETE PAYMENT (ADMIN)
 // ===============================
 const deletePayment = async (req, res) => {
   try {
     const payment = await Payment.findByIdAndDelete(req.params.id);
 
     if (!payment) {
-      return res.status(404).json({ message: "Payment not found" });
+      return res.status(404).json({
+        message: "Payment not found",
+      });
     }
 
-    // ===============================
-    // 🔥 REAL-TIME DELETE EVENT
-    // ===============================
+    // Socket.IO Dashboard Update
     const io = req.app.get("io");
 
     io.emit("dashboard-update", {
       type: "payment",
-      message: "Payment deleted"
+      message: "Payment deleted",
     });
 
-    res.json({ message: "Payment deleted successfully" });
+    res.json({
+      message: "Payment deleted successfully",
+    });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(err);
+    res.status(500).json({
+      message: err.message,
+    });
   }
 };
 
@@ -133,5 +178,5 @@ module.exports = {
   submitPayment,
   getAllPayments,
   updatePaymentStatus,
-  deletePayment
+  deletePayment,
 };

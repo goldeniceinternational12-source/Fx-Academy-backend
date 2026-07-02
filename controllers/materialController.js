@@ -1,141 +1,208 @@
 const MaterialRequest = require("../models/MaterialRequest");
+const sendMail = require("../utils/sendMail");
 
-//
-// ===============================
-// USER: CREATE REQUEST
-// ===============================
+/**
+ * =====================================
+ * USER: CREATE MATERIAL REQUEST
+ * =====================================
+ */
 exports.createRequest = async (req, res) => {
   try {
-    const { title, description } = req.body;
+    const { name, email, material, message } = req.body;
 
-    const request = await MaterialRequest.create({
-      user: req.user.id,
-      title,
-      description,
-    });
-
-    res.status(201).json({
-      message: "Material request created successfully",
-      request,
-    });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
-
-//
-// ===============================
-// USER: UPLOAD PAYMENT
-// ===============================
-exports.uploadPayment = async (req, res) => {
-  try {
-    const request = await MaterialRequest.findById(req.params.id);
-
-    if (!request) {
-      return res.status(404).json({ message: "Request not found" });
-    }
-
-    if (request.status !== "priced") {
+    // Basic validation
+    if (!name || !email || !material) {
       return res.status(400).json({
-        message: "Wait until admin sets price",
+        success: false,
+        message: "Name, email and material are required.",
       });
     }
 
-    request.paymentProof = req.file.path;
-    request.status = "paid";
+    // Create request
+    const request = await MaterialRequest.create({
+      user: req.user._id,
+      name,
+      email,
+      material,
+      message,
+      status: "pending",
+    });
 
-    await request.save();
+    // Notify owner
+    await sendMail({
+      to: process.env.OWNER_EMAIL,
+      subject: "📚 New Material Request - MILMICH FX Academy",
+      html: `
+        <h2>New Material Request</h2>
 
-    res.json({
-      message: "Payment uploaded successfully",
+        <p><strong>Name:</strong> ${name}</p>
+
+        <p><strong>Email:</strong> ${email}</p>
+
+        <p><strong>Requested Material:</strong> ${material}</p>
+
+        <p><strong>Message:</strong></p>
+
+        <p>${message || "No message provided."}</p>
+
+        <hr>
+
+        <p>Please contact the student with the price and payment details.</p>
+      `,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Material request submitted successfully.",
       request,
     });
+
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("CREATE REQUEST ERROR:", err);
+
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 };
 
-//
-// ===============================
-// ADMIN: SET PRICE
-// ===============================
-exports.setPrice = async (req, res) => {
+/**
+ * =====================================
+ * USER: GET MY REQUESTS
+ * =====================================
+ */
+exports.getMyRequests = async (req, res) => {
   try {
-    const request = await MaterialRequest.findById(req.params.id);
-
-    if (!request) {
-      return res.status(404).json({ message: "Request not found" });
-    }
-
-    request.price = req.body.price;
-    request.status = "priced";
-
-    await request.save();
-
-    res.json({
-      message: "Price set successfully",
-      request,
+    const requests = await MaterialRequest.find({
+      user: req.user._id,
+    }).sort({
+      createdAt: -1,
     });
+
+    res.status(200).json({
+      success: true,
+      total: requests.length,
+      requests,
+    });
+
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("GET MY REQUESTS ERROR:", err);
+
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 };
 
-//
-// ===============================
-// ADMIN: GET ALL REQUESTS
-// ===============================
+/**
+ * =====================================
+ * ADMIN: GET ALL REQUESTS
+ * =====================================
+ */
 exports.getAllRequests = async (req, res) => {
   try {
     const requests = await MaterialRequest.find()
       .populate("user", "name email")
-      .sort({ createdAt: -1 });
+      .sort({
+        createdAt: -1,
+      });
 
-    res.json(requests);
+    res.status(200).json({
+      success: true,
+      total: requests.length,
+      requests,
+    });
+
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("GET ALL REQUESTS ERROR:", err);
+
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 };
 
-//
-// ===============================
-// ADMIN: APPROVE PAYMENT
-// ===============================
-exports.approvePayment = async (req, res) => {
+/**
+ * =====================================
+ * ADMIN: UPDATE REQUEST STATUS
+ * =====================================
+ */
+exports.updateRequestStatus = async (req, res) => {
   try {
-    const request = await MaterialRequest.findById(req.params.id);
+    const { status } = req.body;
 
-    if (!request) {
-      return res.status(404).json({ message: "Request not found" });
-    }
+    const allowedStatus = [
+      "pending",
+      "contacted",
+      "delivered",
+    ];
 
-    if (request.status !== "paid") {
+    if (!allowedStatus.includes(status)) {
       return res.status(400).json({
-        message: "Payment not completed yet",
+        success: false,
+        message: "Invalid status.",
       });
     }
 
-    request.status = "delivered";
+    const request = await MaterialRequest.findById(req.params.id);
+
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: "Request not found.",
+      });
+    }
+
+    request.status = status;
 
     await request.save();
 
-    res.json({
-      message: "Material delivered successfully",
+    res.status(200).json({
+      success: true,
+      message: "Request status updated successfully.",
       request,
     });
+
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("UPDATE REQUEST STATUS ERROR:", err);
+
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 };
 
-//
-// ===============================
-// EXPORTS (IMPORTANT FIX)
-// ===============================
-module.exports = {
-  createRequest,
-  uploadPayment,
-  setPrice,
-  getAllRequests,
-  approvePayment,
+/**
+ * =====================================
+ * ADMIN: DELETE REQUEST
+ * =====================================
+ */
+exports.deleteRequest = async (req, res) => {
+  try {
+    const request = await MaterialRequest.findByIdAndDelete(req.params.id);
+
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: "Request not found.",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Request deleted successfully.",
+    });
+
+  } catch (err) {
+    console.error("DELETE REQUEST ERROR:", err);
+
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
 };

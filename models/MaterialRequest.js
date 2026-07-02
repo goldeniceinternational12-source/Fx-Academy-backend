@@ -2,6 +2,12 @@ const mongoose = require("mongoose");
 
 const materialRequestSchema = new mongoose.Schema(
   {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
     name: {
       type: String,
       required: true,
@@ -11,19 +17,29 @@ const materialRequestSchema = new mongoose.Schema(
     email: {
       type: String,
       required: true,
-      trim: true,
       lowercase: true,
+      trim: true,
     },
 
-    request: {
+    material: {
       type: String,
       required: true,
       trim: true,
     },
 
+    message: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     status: {
       type: String,
-      enum: ["pending", "processing", "completed"],
+      enum: [
+        "pending",
+        "contacted",
+        "delivered",
+      ],
       default: "pending",
     },
   },
@@ -32,4 +48,7 @@ const materialRequestSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model("MaterialRequest", materialRequestSchema);
+module.exports = mongoose.model(
+  "MaterialRequest",
+  materialRequestSchema
+);

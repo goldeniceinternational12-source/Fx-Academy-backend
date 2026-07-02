@@ -3,124 +3,119 @@ const MaterialRequest = require("../models/MaterialRequest");
 const Payment = require("../models/Payment");
 
 exports.getDashboardStats = async (req, res) => {
-    try {
+  try {
+    const [
+      totalUsers,
+      activeUsers,
+      suspendedUsers,
 
-        // =====================================
-        // DASHBOARD COUNTERS
-        // =====================================
-        const totalUsers = await User.countDocuments();
+      totalRequests,
+      pendingRequests,
+      completedRequests,
 
-        const totalRequests = await MaterialRequest.countDocuments();
+      totalPayments,
+      approvedPayments,
+      pendingPayments,
+      rejectedPayments,
 
-        const pendingRequests = await MaterialRequest.countDocuments({
-            status: "pending",
-        });
+      usersByMonth,
+      requestsByMonth,
 
-        const completedRequests = await MaterialRequest.countDocuments({
-            status: "completed",
-        });
+      recentRequests,
+      recentPayments,
+    ] = await Promise.all([
 
-        const totalPayments = await Payment.countDocuments();
+      // USERS
+      User.countDocuments(),
+      User.countDocuments({ status: "active" }),
+      User.countDocuments({ status: "suspended" }),
 
-        // =====================================
-        // PAYMENT STATUS
-        // =====================================
-        const approvedPayments = await Payment.countDocuments({
-            status: "approved",
-        });
+      // REQUESTS
+      MaterialRequest.countDocuments(),
+      MaterialRequest.countDocuments({ status: "pending" }),
+      MaterialRequest.countDocuments({ status: "delivered" }),
 
-        const rejectedPayments = await Payment.countDocuments({
-            status: "rejected",
-        });
+      // PAYMENTS
+      Payment.countDocuments(),
+      Payment.countDocuments({ status: "approved" }),
+      Payment.countDocuments({ status: "pending" }),
+      Payment.countDocuments({ status: "rejected" }),
 
-        const pendingPayments = await Payment.countDocuments({
-            status: "pending",
-        });
+      // USERS BY MONTH
+      User.aggregate([
+        {
+          $group: {
+            _id: { $month: "$createdAt" },
+            total: { $sum: 1 },
+          },
+        },
+        {
+          $sort: { _id: 1 },
+        },
+      ]),
 
-        // =====================================
-        // USERS CREATED PER MONTH
-        // =====================================
-        const usersByMonth = await User.aggregate([
-            {
-                $group: {
-                    _id: {
-                        $month: "$createdAt"
-                    },
-                    total: {
-                        $sum: 1
-                    }
-                }
-            },
-            {
-                $sort: {
-                    _id: 1
-                }
-            }
-        ]);
+      // REQUESTS BY MONTH
+      MaterialRequest.aggregate([
+        {
+          $group: {
+            _id: { $month: "$createdAt" },
+            total: { $sum: 1 },
+          },
+        },
+        {
+          $sort: { _id: 1 },
+        },
+      ]),
 
-        // =====================================
-        // REQUESTS CREATED PER MONTH
-        // =====================================
-        const requestsByMonth = await MaterialRequest.aggregate([
-            {
-                $group: {
-                    _id: {
-                        $month: "$createdAt"
-                    },
-                    total: {
-                        $sum: 1
-                    }
-                }
-            },
-            {
-                $sort: {
-                    _id: 1
-                }
-            }
-        ]);
+      // RECENT REQUESTS
+      MaterialRequest.find()
+        .populate("user", "name email")
+        .sort({ createdAt: -1 })
+        .limit(10),
 
-        // =====================================
-        // RECENT MATERIAL REQUESTS
-        // =====================================
-        const recentRequests = await MaterialRequest.find()
-            .sort({ createdAt: -1 })
-            .limit(10);
+      // RECENT PAYMENTS
+      Payment.find()
+        .populate("user", "name email")
+        .sort({ createdAt: -1 })
+        .limit(10),
+    ]);
 
-        // =====================================
-        // RESPONSE
-        // =====================================
-        res.status(200).json({
+    res.status(200).json({
+      success: true,
 
-            // Dashboard Cards
-            totalUsers,
-            totalRequests,
-            pendingRequests,
-            completedRequests,
-            totalPayments,
+      dashboard: {
+        totalUsers,
+        activeUsers,
+        suspendedUsers,
 
-            // Charts
-            paymentStatus: {
-                approved: approvedPayments,
-                pending: pendingPayments,
-                rejected: rejectedPayments,
-            },
+        totalRequests,
+        pendingRequests,
+        completedRequests,
 
-            usersByMonth,
-            requestsByMonth,
+        totalPayments,
+      },
 
-            // Recent Table
-            recentRequests
+      paymentStatus: {
+        approved: approvedPayments,
+        pending: pendingPayments,
+        rejected: rejectedPayments,
+      },
 
-        });
+      analytics: {
+        usersByMonth,
+        requestsByMonth,
+      },
 
-    } catch (err) {
+      recentRequests,
+      recentPayments,
+    });
 
-        console.error(err);
+  } catch (err) {
+    console.error("Dashboard Error:", err);
 
-        res.status(500).json({
-            success: false,
-            message: err.message
-        });
-
-    }
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
 };
