@@ -11,7 +11,7 @@ exports.getAllUsers = async (req, res) => {
       .select("-password -refreshToken")
       .sort({ createdAt: -1 });
 
-    res.status(200).json({
+    res.json({
       success: true,
       total: users.length,
       users,
@@ -22,7 +22,7 @@ exports.getAllUsers = async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: err.message,
+      message: "Failed to fetch users",
     });
   }
 };
@@ -44,7 +44,7 @@ exports.getUser = async (req, res) => {
       });
     }
 
-    res.status(200).json({
+    res.json({
       success: true,
       user,
     });
@@ -54,7 +54,7 @@ exports.getUser = async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: err.message,
+      message: "Failed to fetch user",
     });
   }
 };
@@ -66,12 +66,10 @@ exports.getUser = async (req, res) => {
  */
 exports.updateUser = async (req, res) => {
   try {
-
-    // Prevent password updates here
     delete req.body.password;
     delete req.body.refreshToken;
 
-    const updatedUser = await User.findByIdAndUpdate(
+    const user = await User.findByIdAndUpdate(
       req.params.id,
       req.body,
       {
@@ -80,17 +78,17 @@ exports.updateUser = async (req, res) => {
       }
     ).select("-password -refreshToken");
 
-    if (!updatedUser) {
+    if (!user) {
       return res.status(404).json({
         success: false,
         message: "User not found",
       });
     }
 
-    res.status(200).json({
+    res.json({
       success: true,
-      message: "User updated successfully.",
-      user: updatedUser,
+      message: "User updated successfully",
+      user,
     });
 
   } catch (err) {
@@ -98,7 +96,7 @@ exports.updateUser = async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: err.message,
+      message: "Failed to update user",
     });
   }
 };
@@ -110,8 +108,6 @@ exports.updateUser = async (req, res) => {
  */
 exports.deleteUser = async (req, res) => {
   try {
-
-    // Prevent admin deleting themselves
     if (req.user._id.toString() === req.params.id) {
       return res.status(400).json({
         success: false,
@@ -128,9 +124,9 @@ exports.deleteUser = async (req, res) => {
       });
     }
 
-    res.status(200).json({
+    res.json({
       success: true,
-      message: "User deleted successfully.",
+      message: "User deleted successfully",
     });
 
   } catch (err) {
@@ -138,7 +134,7 @@ exports.deleteUser = async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: err.message,
+      message: "Failed to delete user",
     });
   }
 };
@@ -150,7 +146,6 @@ exports.deleteUser = async (req, res) => {
  */
 exports.toggleUserStatus = async (req, res) => {
   try {
-
     const user = await User.findById(req.params.id);
 
     if (!user) {
@@ -160,16 +155,12 @@ exports.toggleUserStatus = async (req, res) => {
       });
     }
 
-    user.status =
-      user.status === "active"
-        ? "suspended"
-        : "active";
-
+    user.status = user.status === "active" ? "suspended" : "active";
     await user.save();
 
-    res.status(200).json({
+    res.json({
       success: true,
-      message: "User status updated successfully.",
+      message: "User status updated",
       status: user.status,
     });
 
@@ -178,7 +169,7 @@ exports.toggleUserStatus = async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: err.message,
+      message: "Failed to update user status",
     });
   }
 };

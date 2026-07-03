@@ -1,30 +1,56 @@
-const express = require("express");
-const router = express.Router();
-const MaterialRequest = require("../models/MaterialRequest");
-const sendEmail = require("../utils/sendEmail");
+const mongoose = require("mongoose");
 
-router.post("/material-request", async (req, res) => {
-  try {
-    const { name, email, request } = req.body;
+const materialRequestSchema = new mongoose.Schema(
+  {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
 
-    // Save to database (optional but recommended)
-    const newRequest = await MaterialRequest.create({
-      name,
-      email,
-      request
-    });
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
-    // SEND EMAIL ALERT 🔥
-    await sendEmail(name, email, request);
+    email: {
+      type: String,
+      required: true,
+      trim: true,
+      lowercase: true,
+    },
 
-    res.status(200).json({
-      message: "Request submitted successfully"
-    });
+    material: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({ message: "Server error" });
+    message: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    status: {
+      type: String,
+      enum: [
+        "pending",
+        "processing",
+        "contacted",
+        "paid",
+        "delivered",
+      ],
+      default: "pending",
+    },
+  },
+  {
+    timestamps: true,
   }
-});
+);
 
-module.exports = router;
+module.exports = mongoose.model(
+  "MaterialRequest",
+  materialRequestSchema
+);

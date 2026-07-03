@@ -1,132 +1,31 @@
-const Payment = require("../models/Payment");
 const User = require("../models/User");
 const MaterialRequest = require("../models/MaterialRequest");
-const sendMail = require("../utils/sendMail");
 
-// ======================================
-// View All Payments
-// ======================================
-exports.getAllPayments = async (req, res) => {
-  try {
-    const payments = await Payment.find()
-      .populate("user", "name email")
-      .sort({ createdAt: -1 });
-
-    res.json(payments);
-  } catch (err) {
-    res.status(500).json({
-      message: err.message,
-    });
-  }
-};
-
-// ======================================
-// Approve Payment
-// ======================================
-exports.approvePayment = async (req, res) => {
-  try {
-    const payment = await Payment.findById(req.params.id).populate("user");
-
-    if (!payment) {
-      return res.status(404).json({
-        message: "Payment not found",
-      });
-    }
-
-    payment.status = "approved";
-    await payment.save();
-
-    await sendMail({
-      to: payment.user.email,
-      subject: "Payment Approved",
-      html: `
-        <h2>Your payment has been approved.</h2>
-        <p>Product: ${payment.product}</p>
-        <p>Amount: ₦${payment.amount}</p>
-      `,
-    });
-
-    res.json({
-      message: "Payment approved successfully",
-      payment,
-    });
-
-  } catch (err) {
-    res.status(500).json({
-      message: err.message,
-    });
-  }
-};
-
-// ======================================
-// Reject Payment
-// ======================================
-exports.rejectPayment = async (req, res) => {
-  try {
-    const payment = await Payment.findById(req.params.id).populate("user");
-
-    if (!payment) {
-      return res.status(404).json({
-        message: "Payment not found",
-      });
-    }
-
-    payment.status = "rejected";
-    await payment.save();
-
-    await sendMail({
-      to: payment.user.email,
-      subject: "Payment Rejected",
-      html: `
-        <h2>Your payment was rejected.</h2>
-        <p>Please contact support or upload another receipt.</p>
-      `,
-    });
-
-    res.json({
-      message: "Payment rejected successfully",
-      payment,
-    });
-
-  } catch (err) {
-    res.status(500).json({
-      message: err.message,
-    });
-  }
-};
-
-// ======================================
-// Dashboard Statistics
-// ======================================
+/**
+ * ===============================
+ * DASHBOARD STATS
+ * ===============================
+ */
 exports.getDashboardStats = async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
 
-    const totalPayments = await Payment.countDocuments();
-
-    const totalMaterialRequests =
-      await MaterialRequest.countDocuments();
-
-    const pendingPayments = await Payment.countDocuments({
-      status: "pending",
-    });
-
-    const approvedPayments = await Payment.countDocuments({
-      status: "approved",
-    });
+    const totalRequests = await MaterialRequest.countDocuments();
+    const pendingRequests = await MaterialRequest.countDocuments({ status: "pending" });
+    const processingRequests = await MaterialRequest.countDocuments({ status: "processing" });
+    const completedRequests = await MaterialRequest.countDocuments({ status: "completed" });
 
     res.json({
       success: true,
-      totalUsers,
-      totalPayments,
-      totalMaterialRequests,
-      pendingPayments,
-      approvedPayments,
+      dashboard: {
+        totalUsers,
+        totalRequests,
+        pendingRequests,
+        processingRequests,
+        completedRequests,
+      },
     });
-
   } catch (error) {
-    console.error(error);
-
     res.status(500).json({
       success: false,
       message: "Failed to load dashboard statistics.",
@@ -134,24 +33,23 @@ exports.getDashboardStats = async (req, res) => {
   }
 };
 
-// ======================================
-// Get All Material Requests
-// ======================================
+/**
+ * ===============================
+ * GET ALL MATERIAL REQUESTS
+ * ===============================
+ */
 exports.getAllMaterialRequests = async (req, res) => {
   try {
-    const requests = await MaterialRequest.find().sort({
-      createdAt: -1,
-    });
+    const requests = await MaterialRequest.find()
+      .populate("user", "name email")
+      .sort({ createdAt: -1 });
 
-    res.status(200).json({
+    res.json({
       success: true,
       count: requests.length,
       requests,
     });
-
   } catch (error) {
-    console.error(error);
-
     res.status(500).json({
       success: false,
       message: "Failed to fetch material requests.",
@@ -159,18 +57,21 @@ exports.getAllMaterialRequests = async (req, res) => {
   }
 };
 
-// ======================================
-// Update Material Request Status
-// ======================================
+/**
+ * ===============================
+ * UPDATE MATERIAL REQUEST STATUS
+ * ===============================
+ */
 exports.updateMaterialRequestStatus = async (req, res) => {
   try {
     const { status } = req.body;
 
-    // Validate allowed status values
-    if (!["pending", "processing", "completed"].includes(status)) {
+    const allowedStatuses = ["pending", "processing", "completed"];
+
+    if (!allowedStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid status value.",
+        message: "Invalid status value",
       });
     }
 
@@ -179,32 +80,31 @@ exports.updateMaterialRequestStatus = async (req, res) => {
     if (!request) {
       return res.status(404).json({
         success: false,
-        message: "Material request not found.",
+        message: "Material request not found",
       });
     }
 
     request.status = status;
-
     await request.save();
 
-    res.status(200).json({
+    res.json({
       success: true,
-      message: "Status updated successfully.",
+      message: "Request status updated successfully",
       request,
     });
-
   } catch (error) {
-    console.error(error);
-
     res.status(500).json({
       success: false,
-      message: "Failed to update request status.",
+      message: "Failed to update material request",
     });
   }
 };
-// ======================================
-// Delete Material Request
-// ======================================
+
+/**
+ * ===============================
+ * DELETE MATERIAL REQUEST
+ * ===============================
+ */
 exports.deleteMaterialRequest = async (req, res) => {
   try {
     const request = await MaterialRequest.findById(req.params.id);
@@ -212,23 +112,20 @@ exports.deleteMaterialRequest = async (req, res) => {
     if (!request) {
       return res.status(404).json({
         success: false,
-        message: "Material request not found.",
+        message: "Material request not found",
       });
     }
 
     await request.deleteOne();
 
-    res.status(200).json({
+    res.json({
       success: true,
-      message: "Material request deleted successfully.",
+      message: "Material request deleted successfully",
     });
-
   } catch (error) {
-    console.error(error);
-
     res.status(500).json({
       success: false,
-      message: "Failed to delete material request.",
+      message: "Failed to delete material request",
     });
   }
 };

@@ -6,32 +6,36 @@ const {
   getAllRequests,
   getMyRequests,
   updateRequestStatus,
+  deleteRequest,
 } = require("../controllers/materialController");
 
 const { protect, adminOnly } = require("../middleware/authMiddleware");
 
 /**
- * =====================================
+ * ===============================
  * USER ROUTES
- * =====================================
+ * ===============================
  */
 
-// Create a material request
+// Create a new material request
 router.post("/", protect, createRequest);
 
-// Logged-in user views their requests
+// Get logged-in user's requests
 router.get("/my-requests", protect, getMyRequests);
 
 /**
- * =====================================
+ * ===============================
  * ADMIN ROUTES
- * =====================================
+ * ===============================
  */
 
-// View all requests
+// Get all material requests (admin only)
 router.get("/", protect, adminOnly, getAllRequests);
 
-// Update request status
+// Update request status (admin only)
 router.patch("/:id/status", protect, adminOnly, updateRequestStatus);
+
+// Delete request (admin only)
+router.delete("/:id", protect, adminOnly, deleteRequest);
 
 module.exports = router;

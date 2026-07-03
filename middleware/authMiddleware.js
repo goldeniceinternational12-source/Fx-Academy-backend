@@ -3,8 +3,7 @@ const User = require("../models/User");
 
 /**
  * =====================================
- * Protect Route
- * Verify JWT and attach user to request
+ * PROTECT ROUTE
  * =====================================
  */
 exports.protect = async (req, res, next) => {
@@ -21,7 +20,7 @@ exports.protect = async (req, res, next) => {
     if (!token) {
       return res.status(401).json({
         success: false,
-        message: "Not authorized. No token provided.",
+        message: "Not authorized, no token",
       });
     }
 
@@ -32,15 +31,7 @@ exports.protect = async (req, res, next) => {
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: "User no longer exists.",
-      });
-    }
-
-    // Block suspended users
-    if (user.status === "suspended") {
-      return res.status(403).json({
-        success: false,
-        message: "Your account has been suspended.",
+        message: "User not found",
       });
     }
 
@@ -48,57 +39,34 @@ exports.protect = async (req, res, next) => {
 
     next();
   } catch (err) {
-    console.error("AUTH ERROR:", err);
+    console.error(err);
 
     return res.status(401).json({
       success: false,
-      message: "Invalid or expired token.",
+      message: "Token invalid or expired",
     });
   }
 };
 
 /**
  * =====================================
- * Role Authorization Middleware
- * Example:
- * authorize("admin")
- * authorize("admin", "mentor")
+ * ADMIN ONLY
  * =====================================
  */
-exports.authorize = (...roles) => {
-  return async (req, res, next) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({
-          success: false,
-          message: "Unauthorized.",
-        });
-      }
+exports.adminOnly = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: "Unauthorized",
+    });
+  }
 
-      if (!roles.includes(req.user.role)) {
-        return res.status(403).json({
-          success: false,
-          message: "You do not have permission to access this resource.",
-        });
-      }
+  if (req.user.role !== "admin") {
+    return res.status(403).json({
+      success: false,
+      message: "Admin access required",
+    });
+  }
 
-      next();
-    } catch (err) {
-      console.error("AUTHORIZE ERROR:", err);
-
-      return res.status(500).json({
-        success: false,
-        message: "Server error.",
-      });
-    }
-  };
+  next();
 };
-
-/**
- * =====================================
- * Backward Compatibility
- * Existing routes using adminOnly
- * will continue to work.
- * =====================================
- */
-exports.adminOnly = exports.authorize("admin");

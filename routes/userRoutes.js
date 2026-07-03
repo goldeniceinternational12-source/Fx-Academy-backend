@@ -13,20 +13,20 @@ const { protect, adminOnly } = require("../middleware/authMiddleware");
 
 /**
  * ===============================
- * ADMIN ROUTES
+ * ADMIN USER MANAGEMENT
  * ===============================
  */
 
 // Get all users
 router.get("/", protect, adminOnly, getAllUsers);
 
-// Get one user
+// Get single user
 router.get("/:id", protect, adminOnly, getUser);
 
-// Update user details
+// Update user
 router.put("/:id", protect, adminOnly, updateUser);
 
-// Suspend / Activate user
+// Activate / Suspend user
 router.patch("/:id/status", protect, adminOnly, toggleUserStatus);
 
 // Delete user

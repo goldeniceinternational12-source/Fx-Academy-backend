@@ -10,7 +10,6 @@ exports.createRequest = async (req, res) => {
   try {
     const { name, email, material, message } = req.body;
 
-    // Basic validation
     if (!name || !email || !material) {
       return res.status(400).json({
         success: false,
@@ -18,7 +17,6 @@ exports.createRequest = async (req, res) => {
       });
     }
 
-    // Create request
     const request = await MaterialRequest.create({
       user: req.user._id,
       name,
@@ -28,28 +26,22 @@ exports.createRequest = async (req, res) => {
       status: "pending",
     });
 
-    // Notify owner
-    await sendMail({
-      to: process.env.OWNER_EMAIL,
-      subject: "📚 New Material Request - MILMICH FX Academy",
-      html: `
-        <h2>New Material Request</h2>
-
-        <p><strong>Name:</strong> ${name}</p>
-
-        <p><strong>Email:</strong> ${email}</p>
-
-        <p><strong>Requested Material:</strong> ${material}</p>
-
-        <p><strong>Message:</strong></p>
-
-        <p>${message || "No message provided."}</p>
-
-        <hr>
-
-        <p>Please contact the student with the price and payment details.</p>
-      `,
-    });
+    // Email (non-blocking safety)
+    try {
+      await sendMail({
+        to: process.env.OWNER_EMAIL,
+        subject: "📚 New Material Request - MILMICH FX Academy",
+        html: `
+          <h2>New Material Request</h2>
+          <p><strong>Name:</strong> ${name}</p>
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Material:</strong> ${material}</p>
+          <p><strong>Message:</strong> ${message || "No message"}</p>
+        `,
+      });
+    } catch (mailErr) {
+      console.error("EMAIL ERROR:", mailErr.message);
+    }
 
     res.status(201).json({
       success: true,
@@ -62,7 +54,7 @@ exports.createRequest = async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: err.message,
+      message: "Server error while creating request",
     });
   }
 };
@@ -76,22 +68,20 @@ exports.getMyRequests = async (req, res) => {
   try {
     const requests = await MaterialRequest.find({
       user: req.user._id,
-    }).sort({
-      createdAt: -1,
-    });
+    }).sort({ createdAt: -1 });
 
-    res.status(200).json({
+    res.json({
       success: true,
       total: requests.length,
       requests,
     });
 
   } catch (err) {
-    console.error("GET MY REQUESTS ERROR:", err);
+    console.error(err);
 
     res.status(500).json({
       success: false,
-      message: err.message,
+      message: "Failed to fetch user requests",
     });
   }
 };
@@ -105,73 +95,70 @@ exports.getAllRequests = async (req, res) => {
   try {
     const requests = await MaterialRequest.find()
       .populate("user", "name email")
-      .sort({
-        createdAt: -1,
-      });
+      .sort({ createdAt: -1 });
 
-    res.status(200).json({
+    res.json({
       success: true,
       total: requests.length,
       requests,
     });
 
   } catch (err) {
-    console.error("GET ALL REQUESTS ERROR:", err);
+    console.error(err);
 
     res.status(500).json({
       success: false,
-      message: err.message,
+      message: "Failed to fetch requests",
     });
   }
 };
 
 /**
  * =====================================
- * ADMIN: UPDATE REQUEST STATUS
+ * ADMIN: UPDATE STATUS
  * =====================================
  */
 exports.updateRequestStatus = async (req, res) => {
   try {
     const { status } = req.body;
 
-    const allowedStatus = [
-      "pending",
-      "contacted",
-      "delivered",
-    ];
+    // UNIFIED STATUS SYSTEM (FIXED)
+    const allowedStatus = ["pending", "processing", "completed"];
 
     if (!allowedStatus.includes(status)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid status.",
+        message: "Invalid status",
       });
     }
 
-    const request = await MaterialRequest.findById(req.params.id);
+    const request = await MaterialRequest.findById(req.params.id).populate(
+      "user",
+      "name email"
+    );
 
     if (!request) {
       return res.status(404).json({
         success: false,
-        message: "Request not found.",
+        message: "Request not found",
       });
     }
 
     request.status = status;
-
     await request.save();
 
-    res.status(200).json({
+    res.json({
       success: true,
-      message: "Request status updated successfully.",
+      message: "Status updated successfully",
       request,
     });
 
   } catch (err) {
-    console.error("UPDATE REQUEST STATUS ERROR:", err);
+    console.error(err);
 
     res.status(500).json({
       success: false,
-      message: err.message,
+      message: "Failed to update request",
     });
   }
 };
@@ -188,21 +175,21 @@ exports.deleteRequest = async (req, res) => {
     if (!request) {
       return res.status(404).json({
         success: false,
-        message: "Request not found.",
+        message: "Request not found",
       });
     }
 
-    res.status(200).json({
+    res.json({
       success: true,
-      message: "Request deleted successfully.",
+      message: "Request deleted successfully",
     });
 
   } catch (err) {
-    console.error("DELETE REQUEST ERROR:", err);
+    console.error(err);
 
     res.status(500).json({
       success: false,
-      message: err.message,
+      message: "Failed to delete request",
     });
   }
 };

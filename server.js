@@ -3,76 +3,13 @@ const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const http = require("http");
+const morgan = require("morgan");
+const helmet = require("helmet");
 const { Server } = require("socket.io");
 
 dotenv.config();
 
 const app = express();
-
-/**
- * ===============================
- * MIDDLEWARES
- * ===============================
- */
-app.use(
-  cors({
-    origin: "*", // Change to your frontend URL in production
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: true,
-  })
-);
-
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
-
-// Serve uploaded files
-app.use("/uploads", express.static("uploads"));
-
-/**
- * ===============================
- * ROUTES
- * ===============================
- */
-const authRoutes = require("./routes/authRoutes");
-const userRoutes = require("./routes/userRoutes");
-const materialRoutes = require("./routes/materialRoutes");
-const paymentRoutes = require("./routes/paymentRoutes");
-const dashboardRoutes = require("./routes/dashboardRoutes");
-
-app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/materials", materialRoutes);
-app.use("/api/payments", paymentRoutes);
-app.use("/api/dashboard", dashboardRoutes);
-
-/**
- * ===============================
- * TEST ROUTE
- * ===============================
- */
-app.get("/", (req, res) => {
-  res.send("MILMICH FX Academy API is running...");
-});
-
-/**
- * ===============================
- * GLOBAL ERROR HANDLER
- * ===============================
- */
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-
-  res.status(500).json({
-    success: false,
-    message: "Internal Server Error",
-  });
-});
-
-/**
- * ===============================
- * CREATE HTTP SERVER
- * ===============================
- */
 const server = http.createServer(app);
 
 /**
@@ -83,17 +20,99 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: "*",
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   },
 });
 
 app.set("io", io);
 
 io.on("connection", (socket) => {
-  console.log("🟢 Connected:", socket.id);
+  console.log(`🟢 User Connected: ${socket.id}`);
 
   socket.on("disconnect", () => {
-    console.log("🔴 Disconnected:", socket.id);
+    console.log(`🔴 User Disconnected: ${socket.id}`);
+  });
+});
+
+/**
+ * ===============================
+ * MIDDLEWARE
+ * ===============================
+ */
+app.use(
+  cors({
+    origin: "*",
+    credentials: true,
+  })
+);
+
+app.use(helmet());
+
+app.use(morgan("dev"));
+
+app.use(express.json({ limit: "10mb" }));
+
+app.use(
+  express.urlencoded({
+    extended: true,
+    limit: "10mb",
+  })
+);
+
+app.use("/uploads", express.static("uploads"));
+
+/**
+ * ===============================
+ * ROUTES
+ * ===============================
+ */
+
+const authRoutes = require("./routes/authRoutes");
+const userRoutes = require("./routes/userRoutes");
+const materialRoutes = require("./routes/materialRoutes");
+const adminRoutes = require("./routes/adminRoutes");
+
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/materials", materialRoutes);
+app.use("/api/material-requests", materialRoutes);
+app.use("/api/admin", adminRoutes);
+
+/**
+ * ===============================
+ * HOME ROUTE
+ * ===============================
+ */
+app.get("/", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "MILMICH FX Academy API is running.",
+  });
+});
+
+/**
+ * ===============================
+ * 404 HANDLER
+ * ===============================
+ */
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "Route not found.",
+  });
+});
+
+/**
+ * ===============================
+ * GLOBAL ERROR HANDLER
+ * ===============================
+ */
+app.use((err, req, res, next) => {
+  console.error(err);
+
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || "Internal Server Error",
   });
 });
 
@@ -105,7 +124,7 @@ io.on("connection", (socket) => {
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
-    console.log("✅ MongoDB connected successfully");
+    console.log("✅ MongoDB Connected");
 
     const PORT = process.env.PORT || 5000;
 
@@ -114,5 +133,7 @@ mongoose
     });
   })
   .catch((err) => {
-    console.error("❌ MongoDB Connection Error:", err.message);
+    console.error("❌ MongoDB Connection Failed");
+    console.error(err.message);
+    process.exit(1);
   });
