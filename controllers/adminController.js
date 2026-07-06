@@ -1,6 +1,12 @@
 const User = require("../models/User");
 const MaterialRequest = require("../models/MaterialRequest");
 
+const ALLOWED_STATUS = [
+  "pending",
+  "processing",
+  "completed",
+];
+
 /**
  * ===============================
  * DASHBOARD STATS
@@ -8,12 +14,19 @@ const MaterialRequest = require("../models/MaterialRequest");
  */
 exports.getDashboardStats = async (req, res) => {
   try {
-    const totalUsers = await User.countDocuments();
-
-    const totalRequests = await MaterialRequest.countDocuments();
-    const pendingRequests = await MaterialRequest.countDocuments({ status: "pending" });
-    const processingRequests = await MaterialRequest.countDocuments({ status: "processing" });
-    const completedRequests = await MaterialRequest.countDocuments({ status: "completed" });
+    const [
+      totalUsers,
+      totalRequests,
+      pendingRequests,
+      processingRequests,
+      completedRequests,
+    ] = await Promise.all([
+      User.countDocuments(),
+      MaterialRequest.countDocuments(),
+      MaterialRequest.countDocuments({ status: "pending" }),
+      MaterialRequest.countDocuments({ status: "processing" }),
+      MaterialRequest.countDocuments({ status: "completed" }),
+    ]);
 
     res.json({
       success: true,
@@ -26,6 +39,8 @@ exports.getDashboardStats = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error(error);
+
     res.status(500).json({
       success: false,
       message: "Failed to load dashboard statistics.",
@@ -50,6 +65,8 @@ exports.getAllMaterialRequests = async (req, res) => {
       requests,
     });
   } catch (error) {
+    console.error(error);
+
     res.status(500).json({
       success: false,
       message: "Failed to fetch material requests.",
@@ -66,36 +83,37 @@ exports.updateMaterialRequestStatus = async (req, res) => {
   try {
     const { status } = req.body;
 
-    const allowedStatuses = ["pending", "processing", "completed"];
-
-    if (!allowedStatuses.includes(status)) {
+    if (!ALLOWED_STATUS.includes(status)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid status value",
+        message: "Invalid status value.",
       });
     }
 
-    const request = await MaterialRequest.findById(req.params.id);
+    const request = await MaterialRequest.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true }
+    );
 
     if (!request) {
       return res.status(404).json({
         success: false,
-        message: "Material request not found",
+        message: "Material request not found.",
       });
     }
 
-    request.status = status;
-    await request.save();
-
     res.json({
       success: true,
-      message: "Request status updated successfully",
+      message: "Request status updated successfully.",
       request,
     });
   } catch (error) {
+    console.error(error);
+
     res.status(500).json({
       success: false,
-      message: "Failed to update material request",
+      message: "Failed to update material request.",
     });
   }
 };
@@ -112,7 +130,7 @@ exports.deleteMaterialRequest = async (req, res) => {
     if (!request) {
       return res.status(404).json({
         success: false,
-        message: "Material request not found",
+        message: "Material request not found.",
       });
     }
 
@@ -120,12 +138,14 @@ exports.deleteMaterialRequest = async (req, res) => {
 
     res.json({
       success: true,
-      message: "Material request deleted successfully",
+      message: "Material request deleted successfully.",
     });
   } catch (error) {
+    console.error(error);
+
     res.status(500).json({
       success: false,
-      message: "Failed to delete material request",
+      message: "Failed to delete material request.",
     });
   }
 };

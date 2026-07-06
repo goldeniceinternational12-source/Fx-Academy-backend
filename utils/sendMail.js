@@ -1,27 +1,45 @@
-const nodemailer = require("nodemailer");
+const SibApiV3Sdk = require("@getbrevo/brevo");
 
-const sendMail = async (options) => {
+const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+
+// Set API key
+apiInstance.authentications["apiKey"].apiKey = process.env.BREVO_API_KEY;
+
+/**
+ * SEND EMAIL VIA BREVO
+ */
+const sendMail = async ({ subject, html }) => {
   try {
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+    const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+
+    // Sender (must be VERIFIED in Brevo)
+    sendSmtpEmail.sender = {
+      name: "MILMICH FX Academy",
+      email: process.env.EMAIL_USER,
+    };
+
+    // Receiver (owner email)
+    sendSmtpEmail.to = [
+      {
+        email: process.env.OWNER_EMAIL,
       },
-    });
+    ];
 
-    await transporter.sendMail({
-      from: `MILMICH FX Academy <${process.env.EMAIL_USER}>`,
-      to: options.to,
-      subject: options.subject,
-      html: options.html,
-    });
+    // Content
+    sendSmtpEmail.subject = subject;
+    sendSmtpEmail.htmlContent = html;
 
-    console.log("📧 Email sent successfully");
+    // Send email
+    const response = await apiInstance.sendTransacEmail(sendSmtpEmail);
+
+    console.log("📧 Email sent successfully:", response.messageId);
+
+    return response;
   } catch (error) {
-    console.error("EMAIL ERROR:", error.message);
+    console.error(
+      "❌ BREVO EMAIL ERROR:",
+      error.response?.text || error.message || error
+    );
   }
 };
 

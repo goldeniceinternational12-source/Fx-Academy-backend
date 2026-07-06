@@ -39,6 +39,20 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+
+    // ===========================
+    // OTP LOGIN
+    // ===========================
+
+    otp: {
+      type: String,
+      default: null,
+    },
+
+    otpExpires: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -47,10 +61,9 @@ const userSchema = new mongoose.Schema(
 
 /**
  * Compare Password
- * Password hashing is handled in authController.js
  */
 userSchema.methods.matchPassword = async function (enteredPassword) {
-  return await bcrypt.compare(enteredPassword, this.password);
+  return bcrypt.compare(enteredPassword, this.password);
 };
 
 module.exports = mongoose.model("User", userSchema);

@@ -11,18 +11,17 @@ exports.getAllUsers = async (req, res) => {
       .select("-password -refreshToken")
       .sort({ createdAt: -1 });
 
-    res.json({
+    res.status(200).json({
       success: true,
       total: users.length,
       users,
     });
-
-  } catch (err) {
-    console.error(err);
+  } catch (error) {
+    console.error("GET USERS ERROR:", error);
 
     res.status(500).json({
       success: false,
-      message: "Failed to fetch users",
+      message: "Failed to fetch users.",
     });
   }
 };
@@ -40,21 +39,20 @@ exports.getUser = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "User not found.",
       });
     }
 
-    res.json({
+    res.status(200).json({
       success: true,
       user,
     });
-
-  } catch (err) {
-    console.error(err);
+  } catch (error) {
+    console.error("GET USER ERROR:", error);
 
     res.status(500).json({
       success: false,
-      message: "Failed to fetch user",
+      message: "Failed to fetch user.",
     });
   }
 };
@@ -66,8 +64,10 @@ exports.getUser = async (req, res) => {
  */
 exports.updateUser = async (req, res) => {
   try {
+    // Prevent updating protected fields
     delete req.body.password;
     delete req.body.refreshToken;
+    delete req.body.role;
 
     const user = await User.findByIdAndUpdate(
       req.params.id,
@@ -81,22 +81,21 @@ exports.updateUser = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "User not found.",
       });
     }
 
-    res.json({
+    res.status(200).json({
       success: true,
-      message: "User updated successfully",
+      message: "User updated successfully.",
       user,
     });
-
-  } catch (err) {
-    console.error(err);
+  } catch (error) {
+    console.error("UPDATE USER ERROR:", error);
 
     res.status(500).json({
       success: false,
-      message: "Failed to update user",
+      message: "Failed to update user.",
     });
   }
 };
@@ -108,7 +107,8 @@ exports.updateUser = async (req, res) => {
  */
 exports.deleteUser = async (req, res) => {
   try {
-    if (req.user._id.toString() === req.params.id) {
+    // Prevent admin from deleting themselves
+    if (req.user && req.user._id.toString() === req.params.id) {
       return res.status(400).json({
         success: false,
         message: "You cannot delete your own account.",
@@ -120,21 +120,20 @@ exports.deleteUser = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "User not found.",
       });
     }
 
-    res.json({
+    res.status(200).json({
       success: true,
-      message: "User deleted successfully",
+      message: "User deleted successfully.",
     });
-
-  } catch (err) {
-    console.error(err);
+  } catch (error) {
+    console.error("DELETE USER ERROR:", error);
 
     res.status(500).json({
       success: false,
-      message: "Failed to delete user",
+      message: "Failed to delete user.",
     });
   }
 };
@@ -151,25 +150,33 @@ exports.toggleUserStatus = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "User not found.",
+      });
+    }
+
+    // Prevent admin from suspending themselves
+    if (req.user && req.user._id.toString() === user._id.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot suspend your own account.",
       });
     }
 
     user.status = user.status === "active" ? "suspended" : "active";
+
     await user.save();
 
-    res.json({
+    res.status(200).json({
       success: true,
-      message: "User status updated",
+      message: "User status updated successfully.",
       status: user.status,
     });
-
-  } catch (err) {
-    console.error(err);
+  } catch (error) {
+    console.error("TOGGLE USER STATUS ERROR:", error);
 
     res.status(500).json({
       success: false,
-      message: "Failed to update user status",
+      message: "Failed to update user status.",
     });
   }
 };

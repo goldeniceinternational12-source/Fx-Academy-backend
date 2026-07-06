@@ -8,22 +8,53 @@ const {
   deleteMaterialRequest,
 } = require("../controllers/adminController");
 
+const {
+  protect,
+  adminOnly,
+} = require("../middleware/authMiddleware");
+
 /**
- * ===============================
+ * =====================================
  * ADMIN DASHBOARD
- * ===============================
+ * =====================================
  */
-router.get("/dashboard", getDashboardStats);
+
+// GET Dashboard Statistics
+router.get(
+  "/dashboard",
+  protect,
+  adminOnly,
+  getDashboardStats
+);
 
 /**
- * ===============================
- * MATERIAL REQUESTS MANAGEMENT
- * ===============================
+ * =====================================
+ * MATERIAL REQUEST MANAGEMENT
+ * =====================================
  */
-router.get("/material-requests", getAllMaterialRequests);
 
-router.patch("/material-requests/:id", updateMaterialRequestStatus);
+// GET All Material Requests
+router.get(
+  "/material-requests",
+  protect,
+  adminOnly,
+  getAllMaterialRequests
+);
 
-router.delete("/material-requests/:id", deleteMaterialRequest);
+// UPDATE Material Request Status
+router.patch(
+  "/material-requests/:id",
+  protect,
+  adminOnly,
+  updateMaterialRequestStatus
+);
+
+// DELETE Material Request
+router.delete(
+  "/material-requests/:id",
+  protect,
+  adminOnly,
+  deleteMaterialRequest
+);
 
 module.exports = router;

@@ -10,20 +10,20 @@ const materialRequestSchema = new mongoose.Schema(
 
     name: {
       type: String,
-      required: true,
+      required: [true, "Name is required"],
       trim: true,
     },
 
     email: {
       type: String,
-      required: true,
+      required: [true, "Email is required"],
       trim: true,
       lowercase: true,
     },
 
     material: {
       type: String,
-      required: true,
+      required: [true, "Material is required"],
       trim: true,
     },
 

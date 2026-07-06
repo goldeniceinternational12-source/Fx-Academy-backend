@@ -14,26 +14,54 @@ const {
   adminOnly,
 } = require("../middleware/authMiddleware");
 
-/*
-|--------------------------------------------------------------------------
-| USER ROUTES
-|--------------------------------------------------------------------------
-*/
+/**
+ * =====================================
+ * USER MATERIAL REQUEST ROUTES
+ * =====================================
+ */
 
-router.post("/", protect, createRequest);
+// Submit Material Request
+router.post(
+  "/",
+  protect,
+  createRequest
+);
 
-router.get("/my-requests", protect, getMyRequests);
+// Get Logged-in User Requests
+router.get(
+  "/my-requests",
+  protect,
+  getMyRequests
+);
 
-/*
-|--------------------------------------------------------------------------
-| ADMIN ROUTES
-|--------------------------------------------------------------------------
-*/
+/**
+ * =====================================
+ * ADMIN MATERIAL REQUEST ROUTES
+ * =====================================
+ */
 
-router.get("/", protect, adminOnly, getAllRequests);
+// Get All Requests
+router.get(
+  "/",
+  protect,
+  adminOnly,
+  getAllRequests
+);
 
-router.patch("/:id/status", protect, adminOnly, updateRequestStatus);
+// Update Request Status
+router.patch(
+  "/:id/status",
+  protect,
+  adminOnly,
+  updateRequestStatus
+);
 
-router.delete("/:id", protect, adminOnly, deleteRequest);
+// Delete Request
+router.delete(
+  "/:id",
+  protect,
+  adminOnly,
+  deleteRequest
+);
 
 module.exports = router;

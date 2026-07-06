@@ -1,6 +1,12 @@
 const MaterialRequest = require("../models/MaterialRequest");
 const sendMail = require("../utils/sendMail");
 
+const ALLOWED_STATUS = [
+  "pending",
+  "processing",
+  "completed",
+];
+
 /**
  * ==========================================
  * CREATE MATERIAL REQUEST
@@ -13,34 +19,34 @@ exports.createRequest = async (req, res) => {
     if (!name || !email || !material) {
       return res.status(400).json({
         success: false,
-        message: "Name, email, and material are required.",
+        message: "Name, email and material are required.",
       });
     }
 
     const request = await MaterialRequest.create({
-      name,
-      email,
-      material,
-      message,
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      material: material.trim(),
+      message: message ? message.trim() : "",
       user: req.user ? req.user._id : null,
     });
 
-    // Send email in the background
+    // Send email without delaying the response
     sendMail({
       to: process.env.EMAIL_USER,
       subject: "New Material Request",
       html: `
         <h2>New Material Request</h2>
-        <p><strong>Name:</strong> ${name}</p>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Material:</strong> ${material}</p>
-        <p><strong>Message:</strong> ${message || "N/A"}</p>
+        <p><strong>Name:</strong> ${request.name}</p>
+        <p><strong>Email:</strong> ${request.email}</p>
+        <p><strong>Material:</strong> ${request.material}</p>
+        <p><strong>Message:</strong> ${request.message || "N/A"}</p>
       `,
-    }).catch((err) => {
-      console.error("EMAIL FAILED:", err.message);
+    }).catch((error) => {
+      console.error("EMAIL ERROR:", error);
     });
 
-    return res.status(201).json({
+    res.status(201).json({
       success: true,
       message: "Material request submitted successfully.",
       request,
@@ -49,9 +55,9 @@ exports.createRequest = async (req, res) => {
   } catch (error) {
     console.error("CREATE REQUEST ERROR:", error);
 
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
-      message: "Server error.",
+      message: "Failed to submit material request.",
     });
   }
 };
@@ -67,17 +73,18 @@ exports.getMyRequests = async (req, res) => {
       user: req.user._id,
     }).sort({ createdAt: -1 });
 
-    res.json({
+    res.status(200).json({
       success: true,
+      total: requests.length,
       requests,
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("GET MY REQUESTS ERROR:", error);
 
     res.status(500).json({
       success: false,
-      message: "Server error.",
+      message: "Failed to fetch your requests.",
     });
   }
 };
@@ -93,17 +100,18 @@ exports.getAllRequests = async (req, res) => {
       .populate("user", "name email")
       .sort({ createdAt: -1 });
 
-    res.json({
+    res.status(200).json({
       success: true,
+      total: requests.length,
       requests,
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("GET ALL REQUESTS ERROR:", error);
 
     res.status(500).json({
       success: false,
-      message: "Server error.",
+      message: "Failed to fetch requests.",
     });
   }
 };
@@ -115,31 +123,43 @@ exports.getAllRequests = async (req, res) => {
  */
 exports.updateRequestStatus = async (req, res) => {
   try {
-    const request = await MaterialRequest.findById(req.params.id);
+    const { status } = req.body;
+
+    if (!ALLOWED_STATUS.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid request status.",
+      });
+    }
+
+    const request = await MaterialRequest.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
 
     if (!request) {
       return res.status(404).json({
         success: false,
-        message: "Request not found.",
+        message: "Material request not found.",
       });
     }
 
-    request.status = req.body.status;
-
-    await request.save();
-
-    res.json({
+    res.status(200).json({
       success: true,
-      message: "Request updated successfully.",
+      message: "Request status updated successfully.",
       request,
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("UPDATE REQUEST ERROR:", error);
 
     res.status(500).json({
       success: false,
-      message: "Server error.",
+      message: "Failed to update request.",
     });
   }
 };
@@ -151,28 +171,26 @@ exports.updateRequestStatus = async (req, res) => {
  */
 exports.deleteRequest = async (req, res) => {
   try {
-    const request = await MaterialRequest.findById(req.params.id);
+    const request = await MaterialRequest.findByIdAndDelete(req.params.id);
 
     if (!request) {
       return res.status(404).json({
         success: false,
-        message: "Request not found.",
+        message: "Material request not found.",
       });
     }
 
-    await request.deleteOne();
-
-    res.json({
+    res.status(200).json({
       success: true,
-      message: "Request deleted successfully.",
+      message: "Material request deleted successfully.",
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("DELETE REQUEST ERROR:", error);
 
     res.status(500).json({
       success: false,
-      message: "Server error.",
+      message: "Failed to delete request.",
     });
   }
 };
